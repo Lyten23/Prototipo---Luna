@@ -15,7 +15,8 @@ namespace PlayerController
         private FrameInput _frameInput;
         private Vector2 _frameVelocity;
         private bool _cachedQueryStartInColliders;
-        [Header("Camera")] private float _fallSpeedYDampingChangeThreshold;
+        [Header("Camera")] 
+        private float _fallSpeedYDampingChangeThreshold;
         [Header("Dash")] 
         [SerializeField] private bool _canDash;
         private bool _isDashing;
@@ -30,7 +31,7 @@ namespace PlayerController
         public float wallJumpingTime;
         public float wallJumpingCounter;
         public float wallJumpingDuration = 0.4f;
-        private Vector2 _wallJumpingPower = new Vector2(8f, 16f);
+        public Vector2 _wallJumpingPower = new Vector2(8f, 16f);
         #region Interface
 
         public bool IsDashing => _isDashing;
@@ -50,6 +51,8 @@ namespace PlayerController
 
             _cachedQueryStartInColliders = Physics2D.queriesStartInColliders;
             _fallSpeedYDampingChangeThreshold = CameraManager.instance.fallSpeedYDampingChangeTreshold;
+            wallJumpingCounter = 0f;
+            _isWallJumping = false;
             _canDash = true;
         }
 
@@ -128,7 +131,6 @@ namespace PlayerController
             // Chocamos con el Techo
             if (ceilingHit) _frameVelocity.y = Mathf.Min(0, _frameVelocity.y);
             // Chocamos con una pared (Slide)
-            
             else
             {
                 _isWallSliding = false;
@@ -139,6 +141,8 @@ namespace PlayerController
                 _grounded = true;
                 _coyoteUsable = true;
                 _bufferedJumpUsable = true;
+                _doubleJumpAvailable = true;
+                _usedDoubleJump = false;
                 _endedJumpEarly = false;
                 GroundedChanged?.Invoke(true, Mathf.Abs(_frameVelocity.y));
             }
@@ -151,9 +155,9 @@ namespace PlayerController
             }
             if (!_grounded && walledHit)
             {
-                Debug.Log(walledHit);
                 _isWallSliding = true;
-                _frameVelocity.y=Mathf.Clamp(_rb.velocity.y, -_wallSlidingSpeed, float.MaxValue);
+                _usedDoubleJump = true;
+                _frameVelocity.y = Mathf.Clamp(_rb.velocity.y, -_wallSlidingSpeed, float.MaxValue);
             }
             Physics2D.queriesStartInColliders = _cachedQueryStartInColliders;
         }
@@ -167,6 +171,9 @@ namespace PlayerController
         private bool _coyoteUsable;
         private float _timeJumpWasPressed;
 
+        [SerializeField] private bool _doubleJumpAvailable;
+        [SerializeField] private bool _usedDoubleJump;
+
         private bool HasBufferedJump => _bufferedJumpUsable && _time < _timeJumpWasPressed + _stats.JumpBuffer;
         private bool CanUseCoyote => _coyoteUsable && !_grounded && _time < _frameLeftGrounded + _stats.CoyoteTime;
 
@@ -174,10 +181,22 @@ namespace PlayerController
         {
             if (!_endedJumpEarly && !_grounded && !_frameInput.JumpHeld && _rb.velocity.y > 0) _endedJumpEarly = true;
 
-            if (!_jumpToConsume && !HasBufferedJump) return;
-
-            if (_grounded || CanUseCoyote) ExecuteJump();
-
+            if ((_grounded || CanUseCoyote || (_doubleJumpAvailable && !_usedDoubleJump)) &&
+                (_jumpToConsume || HasBufferedJump))
+            {
+                if (_isWallSliding && _frameInput.JumpDown)
+                {
+                    // Wall jump
+                    _isWallJumping = true;
+                    _rb.velocity = new Vector2(4 * _wallJumpingPower.x, _wallJumpingPower.y);
+                    wallJumpingCounter = 0f;
+                    Invoke(nameof(StopWallJumping), wallJumpingDuration);
+                }
+                else
+                {
+                    ExecuteJump(); 
+                }
+            }
             _jumpToConsume = false;
         }
 
@@ -188,6 +207,18 @@ namespace PlayerController
             _bufferedJumpUsable = false;
             _coyoteUsable = false;
             _frameVelocity.y = _stats.JumpPower;
+            if (!_grounded)
+            {
+                if (_doubleJumpAvailable && !_usedDoubleJump )
+                {
+                    _usedDoubleJump = true;
+                    _doubleJumpAvailable = false;
+                }
+                else
+                {
+                    _doubleJumpAvailable = true;
+                }
+            }
             Jumped?.Invoke();
         }
 
@@ -207,6 +238,10 @@ namespace PlayerController
             else
             {
                 wallJumpingCounter -= Time.deltaTime;
+                if (wallJumpingCounter<=0f)
+                {
+                    _isWallJumping = false;
+                }
             }
 
             if (_frameInput.JumpDown && wallJumpingCounter>0f)
