@@ -13624,6 +13624,10 @@ PrefabInstance:
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7564529764363605339, guid: 7b0d31fa5684b46ccbb3d3927985788b, type: 3}
+      propertyPath: customInspectorObjects.panDirection
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7564529764363605339, guid: 7b0d31fa5684b46ccbb3d3927985788b, type: 3}
       propertyPath: customInspectorObjects.panCameraOnContact
       value: 1
       objectReference: {fileID: 0}
