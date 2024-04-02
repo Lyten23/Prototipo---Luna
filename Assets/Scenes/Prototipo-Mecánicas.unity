@@ -8578,7 +8578,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1544650614272011792, guid: 88097b566ad1fdd489d7ee77465b57aa, type: 3}
       propertyPath: wallJumpingTime
-      value: 1
+      value: 0.2
       objectReference: {fileID: 0}
     - target: {fileID: 1544650614272011792, guid: 88097b566ad1fdd489d7ee77465b57aa, type: 3}
       propertyPath: wallJumpingDirection
