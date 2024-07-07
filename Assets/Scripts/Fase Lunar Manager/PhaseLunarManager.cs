@@ -2,53 +2,93 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+public enum FaseCharacter
+{
+    CC,
+    LL,
+}
+
 namespace PlayerController
 {
-    public class PhaseLunarManager : MonoBehaviour
+    public class PhaseManager : MonoBehaviour
     {
-        public enum EPhase
-        {
-            Phase1,
-            Phase2,
-        }
+        [Header("Referencias")] public FaseCharacter currentPhase;
+        [SerializeField] Animator animatorLl;
+        [SerializeField] Animator animatorCc;
+        [SerializeField] GameObject characterLL;
+        [SerializeField] GameObject characterCC;
+        [SerializeField] ScriptableStats statsLl;
+        [SerializeField] ScriptableStats statsCC;
+        [Header("PhaseSettings")] public int prueba;
+        [Header("Phase Timing")] public float phaseChangeInterval = 5f;
+        private float phaseChangeTimer;
+        [SerializeField] private bool stopChangingPhases = false;
+        [SerializeField] private bool stop;
 
-        [SerializeField] private PlayerController player;
-        [SerializeField] private Camera cam;
-        [SerializeField] private Transform phase1Anchor;
-        [SerializeField] private Transform phase2Anchor;
-        [SerializeField] private GameObject phase1GO;
-        [SerializeField] private GameObject phase2GO;
-        [field: SerializeField] public EPhase currentPhase { get; private set; } = EPhase.Phase1;
-        public Vector3 currentAnchorPosition => currentPhase == EPhase.Phase1 ? phase1Anchor.position : phase2Anchor.position;
-
-        public Vector3 otherAnchorPosition => currentPhase == EPhase.Phase1 ? phase2Anchor.position : phase1Anchor.position;
         void Start()
         {
-            
-        }
-        void Update()
-        {
-            if (Input.GetKeyDown(KeyCode.P))
-            {
-                FlipWorlds();
-                Debug.Log("Quiero Cambiar de fase!!!");
-            }
-            Vector3 playerOffset=player.transform.position - currentAnchorPosition;
-            Vector3 newShadowPlayerLocation = playerOffset + otherAnchorPosition;
+            ChangedPhase(FaseCharacter.CC);
+            phaseChangeTimer = phaseChangeInterval;
         }
 
-        void FlipWorlds()
+        void Update()
         {
-            //Todo - Safety Check
-            currentPhase = currentPhase == EPhase.Phase1 ? EPhase.Phase2 : EPhase.Phase1;
-            if (currentPhase==EPhase.Phase1)
+            if (!stopChangingPhases)
             {
-                phase1GO.SetActive(true);
-                phase2GO.SetActive(false);
-            }else if (currentPhase==EPhase.Phase2)
+                phaseChangeTimer -= Time.deltaTime;
+                if (phaseChangeTimer <= 0)
+                {
+                    ChangePhaseTimer();
+                    phaseChangeTimer = phaseChangeInterval;
+                }
+            }
+
+            /*if (playerController.playerInput.actions["Pruebas"].WasPerformedThisFrame())
             {
-                phase2GO.SetActive(true);
-                phase1GO.SetActive(false);
+                stop = true;
+                CheckConditionAndChangePhase(stop);
+            }*/
+        }
+
+        public void ChangedPhase(FaseCharacter newPhase)
+        {
+            currentPhase = newPhase;
+            switch (currentPhase)
+            {
+                case FaseCharacter.LL:
+                    characterLL.SetActive(true);
+                    characterCC.SetActive(false);
+                    break;
+                case FaseCharacter.CC:
+                    characterCC.SetActive(true);
+                    characterLL.SetActive(false);
+                    break;
+            }
+        }
+
+        private void ChangePhaseTimer()
+        {
+            if (currentPhase == FaseCharacter.LL)
+            {
+                ChangedPhase(FaseCharacter.CC);
+            }
+            else
+            {
+                ChangedPhase(FaseCharacter.LL);
+            }
+        }
+
+        public void ChangeToSpecificPhase(FaseCharacter specificPhase)
+        {
+            ChangedPhase(specificPhase);
+            stopChangingPhases = true; // Detener los cambios automáticos de fase
+        }
+
+        public void CheckConditionAndChangePhase(bool condition)
+        {
+            if (condition)
+            {
+                ChangeToSpecificPhase(FaseCharacter.LL); // Cambia a la fase específica si se cumple la condición
             }
         }
     }

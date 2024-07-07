@@ -23,7 +23,8 @@ namespace PlayerController
         [SerializeField] private SpriteRenderer sprite;
         [Header("WallSlide/WallJump")] 
         [SerializeField]private bool _isWallSliding;
-        private float _wallSlidingSpeed = 2f;
+        [SerializeField]private float _wallSlidingSpeed = 2f;
+        [SerializeField] private bool _canWallJump;
         
         //Wall Jump 
         private bool _isWallJumping;
@@ -69,7 +70,6 @@ namespace PlayerController
                 CameraManager.instance.LerpedFromPlayerFalling = false;
                 CameraManager.instance.LerpYDamping(false);
             }
-            WallJump();
             GatherInput();
         }
 
@@ -127,7 +127,7 @@ namespace PlayerController
             // Detectamos la colisión con el suelo, techo y paredes
             bool groundHit = Physics2D.CapsuleCast(_col.bounds.center, _col.size, _col.direction, 0, Vector2.down, _stats.GrounderDistance, ~_stats.PlayerLayer);
             bool ceilingHit = Physics2D.CapsuleCast(_col.bounds.center, _col.size, _col.direction, 0, Vector2.up, _stats.GrounderDistance, ~_stats.PlayerLayer);
-            bool walledHit = Physics2D.CapsuleCast(_col.bounds.center, _col.size, _col.direction, 0,walledColisionDirection, _stats.GrounderDistance, _stats.Wall);
+            bool walledHit = Physics2D.CapsuleCast(_col.bounds.center, _col.size, _col.direction, 0, walledColisionDirection, _stats.GrounderDistance, _stats.Wall);
 
             // Chocamos con el Techo
             if (ceilingHit) _frameVelocity.y = Mathf.Min(0, _frameVelocity.y);
@@ -157,11 +157,13 @@ namespace PlayerController
             if (!_grounded && walledHit && _frameInput.Move.x!=0)
             {
                 _isWallSliding = true;
+                _canWallJump = true;
                 _usedDoubleJump = true;
                 _frameVelocity.y = Mathf.Clamp(_rb.velocity.y, -_wallSlidingSpeed, float.MaxValue);
             }
             else
             {
+                _canWallJump = false;
                 _isWallSliding = false;
             }
             Physics2D.queriesStartInColliders = _cachedQueryStartInColliders;
@@ -188,12 +190,9 @@ namespace PlayerController
             if ((_grounded || CanUseCoyote || (_doubleJumpAvailable && !_usedDoubleJump)) &&
                 (_jumpToConsume || HasBufferedJump))
             {
-                if (_isWallSliding && _frameInput.JumpDown)
+                if (_isWallSliding && _frameInput.JumpDown && _canWallJump)
                 {
-                    // Wall jump
-                    _isWallJumping = true;
-                    _rb.velocity = new Vector2(-4,8);
-                    Debug.Log("HOlaaaa");
+                    ExecuteWallJump();
                 }
                 else
                 {
@@ -201,6 +200,17 @@ namespace PlayerController
                 }
             }
             _jumpToConsume = false;
+            if (!_isWallSliding)
+            {
+                if (wallJumpingCounter>0)
+                {
+                    wallJumpingCounter -= Time.deltaTime;
+                }
+                else
+                {
+                    _isWallSliding = false;
+                }
+            }
         }
 
         private void ExecuteJump()
@@ -216,61 +226,35 @@ namespace PlayerController
                 {
                     _usedDoubleJump = true;
                     _doubleJumpAvailable = false;
+                    Jumped?.Invoke();
                 }
                 else
                 {
                     _doubleJumpAvailable = true;
                 }
             }
+            else
+            {
+                Jumped?.Invoke();
+            }
+        }
+
+        private void ExecuteWallJump()
+        {
+            _endedJumpEarly = false;
+            _timeJumpWasPressed = 0;
+            _bufferedJumpUsable = false;
+
+            float jumpDirection = sprite.flipX ? 1 : -1;
+
+            _frameVelocity = new Vector2(jumpDirection * _wallJumpingPower.x, _wallJumpingPower.y);
+            _isWallJumping = true;
+            wallJumpingCounter = wallJumpingTime;
             Jumped?.Invoke();
         }
 
         #endregion
-
-        #region WallJump
-
-        void WallJump()
-        {
-            if (_isWallSliding)
-            {
-                _isWallJumping = false;
-                if (sprite.flipX)
-                {
-                    wallJumpingDirection = -sprite.transform.localScale.x;
-                }
-                else
-                {
-                    wallJumpingDirection = sprite.transform.localScale.x;
-                }
-                wallJumpingCounter = wallJumpingTime;
-                CancelInvoke(nameof(StopWallJumping));
-            }
-            else
-            {
-                wallJumpingCounter -= Time.deltaTime;
-            }
-
-            if (_frameInput.JumpDown && wallJumpingCounter>0f)
-            {
-                _isWallJumping = true;
-                _rb.velocity = new Vector2(wallJumpingDirection * _wallJumpingPower.x, _wallJumpingPower.y);
-                wallJumpingCounter = 0f;
-                if (transform.localScale.x!=wallJumpingDirection)
-                {
-                    sprite.flipX = !sprite.flipX;
-                    Vector3 localScale = transform.localScale;
-                    localScale.x *= -1;
-                    transform.localScale = localScale;
-                }
-                Invoke(nameof(StopWallJumping),wallJumpingDuration);
-            }
-        }
-
-        void StopWallJumping()
-        {
-            _isWallJumping = false;
-        }
-        #endregion
+        
         #region Dash
 
         private IEnumerator Dash()
@@ -294,6 +278,7 @@ namespace PlayerController
             _canDash = true;
         }
         #endregion
+        
 
         #region Horizontal
 

@@ -24,6 +24,7 @@ namespace PlayerController
 
         [Header("Particles")] 
         [SerializeField] private ParticleSystem _jumpParticles;
+        [SerializeField] private ParticleSystem _dobleJumpParticles;
         [SerializeField] private ParticleSystem _launchParticles;
         [SerializeField] private ParticleSystem _moveParticles;
         [SerializeField] private ParticleSystem _landParticles;
@@ -98,9 +99,13 @@ namespace PlayerController
                 SetColor(_jumpParticles);
                 SetColor(_launchParticles);
                 _jumpParticles.Play();
+            }else if (!_grounded)
+            {
+                SetColor(_jumpParticles);
+                _dobleJumpParticles.Play();
             }
         }
-
+        
         private void OnDashing()
         {
             _anim.SetTrigger("Dash");
